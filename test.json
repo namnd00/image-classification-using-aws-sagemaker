@@ -1,0 +1,5 @@
+{
+    "source-bucket-name": "https://s3-us-west-1.amazonaws.com/udacity-aind/dog-project",
+    "destination-bucket-name": "s3://sagemaker-studio-418228298154-mrkblv2qeqi",
+    "file_key": "dogImages.zip"
+}
