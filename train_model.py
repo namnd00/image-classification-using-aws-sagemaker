@@ -28,6 +28,7 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def test(model, test_loader, criterion, device, hook):
+    """Evaluate model"""
     hook.set_mode(smd.modes.EVAL)
     model.eval()
     running_loss = 0
@@ -57,7 +58,7 @@ def train(model,
           device,
           hook,
           early_stopping):
-
+    """Train model"""
     epochs = 20
     best_loss = 1e6
     image_dataset = {'train': train_loader, 'valid': validation_loader}
@@ -121,6 +122,7 @@ def train(model,
 
 
 def net():
+    """Network initialization"""
     model = models.resnet50(pretrained=True)
 
     for param in model.parameters():
@@ -135,6 +137,7 @@ def net():
 
 
 def model_fn(model_dir):
+    """Model function"""
     print("In model_fn. Model directory is -")
     print(model_dir)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -151,6 +154,7 @@ def model_fn(model_dir):
 
 
 def create_data_loaders(data, batch_size):
+    """Create data loaders"""
     train_data_path = os.path.join(data, 'train')
     test_data_path = os.path.join(data, 'test')
     validation_data_path = os.path.join(data, 'valid')

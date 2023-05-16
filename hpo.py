@@ -22,22 +22,36 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def test(model, test_loader, criterion, device):
+    """Evaluate model"""
+    # set model to evaluation mode
     model.eval()
+
+    # initialize variables to keep track of loss and accuracy during testing
     running_loss = 0
     running_corrects = 0
 
+    # iterate over test data in batches
     for inputs, labels in test_loader:
+        # move inputs and labels to GPU if available
         inputs = inputs.to(device)
         labels = labels.to(device)
+
+        # forward pass through the network
         outputs = model(inputs)
+
+        # calculate loss
         loss = criterion(outputs, labels)
+
+        # calculate number of correct predictions
         _, preds = torch.max(outputs, 1)
         running_loss += loss.item() * inputs.size(0)
         running_corrects += torch.sum(preds == labels.data).item()
 
+    # calculate average loss and accuracy over all test data
     total_loss = running_loss / len(test_loader.dataset)
     total_acc = running_corrects / len(test_loader.dataset)
 
+    # log testing results
     logger.info(f"Testing Loss: {total_loss}")
     logger.info(f"Testing Accuracy: {total_acc}")
 
@@ -49,38 +63,56 @@ def train(model,
           optimizer,
           device,
           early_stopping):
+    """Train model"""
 
+    # set number of epochs and initialize some variables
     epochs = 2
     best_loss = 1e6
     image_dataset = {'train': train_loader, 'valid': validation_loader}
     loss_counter = 0
 
+    # loop over epochs
     for epoch in range(epochs):
+        # loop over training and validation phases
         for phase in ['train', 'valid']:
             print(f"Epoch {epoch}, Phase {phase}")
+
+            # set model to appropriate mode
             if phase == 'train':
                 model.train()
             else:
                 model.eval()
+
+            # initialize some variables for this phase
             running_loss = 0.0
             running_corrects = 0
             running_samples = 0
 
+            # iterate over batches of data
             for step, (inputs, labels) in enumerate(image_dataset[phase]):
+                # move inputs and labels to GPU if available
                 inputs = inputs.to(device)
                 labels = labels.to(device)
+
+                # forward pass through the network
                 outputs = model(inputs)
+
+                # calculate loss
                 loss = criterion(outputs, labels)
 
+                # take a backward step and update parameters during training phase
                 if phase == 'train':
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
 
+                # calculate number of correct predictions
                 _, preds = torch.max(outputs, 1)
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data).item()
                 running_samples += len(inputs)
+
+                # optionally log progress during training
                 if running_samples % 2000 == 0:
                     accuracy = running_corrects / running_samples
                     print("Images [{}/{} ({:.0f}%)] Loss: {:.2f} Accuracy: {}/{} ({:.2f}%)".format(
@@ -93,34 +125,45 @@ def train(model,
                             100.0 * accuracy,
                         )
                     )
-                # NOTE: Comment lines below to train and test on whole dataset
+
+                # break loop to train and test on subset of dataset
                 if running_samples > (0.2 * len(image_dataset[phase].dataset)):
                     break
 
+            # calculate average loss and accuracy over this phase
             epoch_loss = running_loss / running_samples
             epoch_acc = running_corrects / running_samples
 
+            # update best loss if appropriate
             if phase == 'valid':
                 if epoch_loss < best_loss:
                     best_loss = epoch_loss
                 else:
                     loss_counter += 1
+
+            # log progress for this phase
             logger.info('{} loss: {:.4f}, acc: {:.4f}, best loss: {:.4f}'.format(phase,
                                                                                         epoch_loss,
                                                                                         epoch_acc,
                                                                                         best_loss))
+        # check for early stopping
         if loss_counter == early_stopping:
             logger.info('Early stopping')
             break
+
     return model
 
 
 def net():
+    """Network initialization"""
+    # initialize pre-trained ResNet-50 model
     model = models.resnet50(pretrained=True)
 
+    # freeze parameters so we don't backpropagate through them
     for param in model.parameters():
         param.requires_grad = False
 
+    # replace fully-connected layer to match number of classes (133 in this case)
     num_features = model.fc.in_features
     model.fc = nn.Sequential(
                    nn.Linear(num_features, 128),
@@ -130,22 +173,24 @@ def net():
 
 
 def model_fn(model_dir):
-    print("In model_fn. Model directory is -")
-    print(model_dir)
+    """
+    Loads a PyTorch model from the specified directory and returns it in eval mode.
+    """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = net().to(device)
+    model_path = os.path.join(model_dir, "model.pth")
 
-    with open(os.path.join(model_dir, "model.pth"), "rb") as f:
-        print("Loading the dog classifier model")
-        checkpoint = torch.load(f , map_location =device)
-        model.load_state_dict(checkpoint)
-        print('MODEL-LOADED')
-        logger.info('model loaded successfully')
-    model.eval()
-    return model
+    # Load the saved model parameters onto the CPU/GPU
+    checkpoint = torch.load(model_path, map_location=device)
+    model = net()
+    model.load_state_dict(checkpoint)
+    model.to(device)
+
+    logger.info('Model loaded successfully')
+    return model.eval()
 
 
 def create_data_loaders(data, batch_size):
+    """Create data loader"""
     train_data_path = os.path.join(data, 'train')
     test_data_path = os.path.join(data, 'test')
     validation_data_path = os.path.join(data, 'valid')

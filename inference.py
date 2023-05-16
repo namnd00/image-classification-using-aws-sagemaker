@@ -19,6 +19,7 @@ JPEG_CONTENT_TYPE = 'image/jpeg'
 
 # Based on https://github.com/pytorch/examples/blob/master/mnist/main.py
 def Net():
+    """Network initialization"""
     model = models.resnet50(pretrained=True)
 
     for param in model.parameters():
@@ -30,11 +31,15 @@ def Net():
                    nn.Linear(128, 133))
     return model
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+def get_device():
+    """Get the device is `cuda` or not"""
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def model_fn(model_dir):
+    """
+    Loads a PyTorch model from the specified directory and returns it in eval mode.
+    """
     print("In model_fn. Model directory is -")
     print(model_dir)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -50,20 +55,18 @@ def model_fn(model_dir):
     return model
 
 
-
-
 def input_fn(request_body, content_type=JPEG_CONTENT_TYPE):
+    """Input function"""
     logger.info('Deserializing the input data.')
     # process an image uploaded to the endpoint
-    #if content_type == JPEG_CONTENT_TYPE: return io.BytesIO(request_body)
+
     logger.debug(f'Request body CONTENT-TYPE is: {content_type}')
     logger.debug(f'Request body TYPE is: {type(request_body)}')
     if content_type == JPEG_CONTENT_TYPE: return Image.open(io.BytesIO(request_body))
     logger.debug('SO loded JPEG content')
-    # process a URL submitted to the endpoint
     
+    # process a URL submitted to the endpoint
     if content_type == JSON_CONTENT_TYPE:
-        #img_request = requests.get(url)
         logger.debug(f'Request body is: {request_body}')
         request = json.loads(request_body)
         logger.debug(f'Loaded JSON object: {request}')
@@ -73,8 +76,8 @@ def input_fn(request_body, content_type=JPEG_CONTENT_TYPE):
     
     raise Exception('Requested unsupported ContentType in content_type: {}'.format(content_type))
 
-# inference
 def predict_fn(input_object, model):
+    """Predict function"""
     logger.info('In predict fn')
     test_transform = transforms.Compose([
     transforms.Resize((224, 224)),
